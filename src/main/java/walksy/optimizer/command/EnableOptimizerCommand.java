@@ -1,12 +1,10 @@
 package walksy.optimizer.command;
 
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.text.Text;
-
-
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.network.chat.Component;
 
 public class EnableOptimizerCommand {
 
@@ -14,7 +12,7 @@ public class EnableOptimizerCommand {
 
     public void initializeToggleCommands() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
-                dispatcher.register(ClientCommandManager.literal("walksyfastcrystal").executes(context -> {
+                dispatcher.register(ClientCommands.literal("walksyfastcrystal").executes(context -> {
                     if (fastCrystal) {
                         fastCrystal = false;
                         displayMessage("Walksy's Fast crystals disabled!");
@@ -32,15 +30,15 @@ public class EnableOptimizerCommand {
         // Make sure that they are in game.
         if (!inGame()) return;
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        ChatHud chatHud = client.inGameHud.getChatHud();
+        Minecraft client = Minecraft.getInstance();
+        ChatComponent chatHud = client.gui.getChat();
 
-        chatHud.addMessage(Text.of(message));
+        chatHud.addClientSystemMessage(Component.nullToEmpty(message));
     }
 
 
     public static Boolean inGame() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        return client.player != null && client.getNetworkHandler() != null;
+        Minecraft client = Minecraft.getInstance();
+        return client.player != null && client.getConnection() != null;
     }
 }

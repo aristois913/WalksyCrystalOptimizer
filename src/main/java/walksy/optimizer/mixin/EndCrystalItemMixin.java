@@ -1,21 +1,21 @@
 package walksy.optimizer.mixin;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.EndCrystalItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ItemUsageContext;
-import net.minecraft.item.Items;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.EndCrystalItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -38,18 +38,18 @@ public class EndCrystalItemMixin {
      * Stops crystals from decreasing too much
      * PS: does not work on singleplayer
      */
-    @Inject(method = {"useOnBlock"}, at = {@At("HEAD")}, cancellable = true)
-    private void modifyDecrementAmount(ItemUsageContext context, CallbackInfoReturnable<ActionResult> cir) {
-        ItemStack mainHandStack = mc.player.getMainHandStack();
-        if (mainHandStack.isOf(Items.END_CRYSTAL)) {
+    @Inject(method = {"useOn"}, at = {@At("HEAD")}, cancellable = true)
+    private void modifyDecrementAmount(UseOnContext context, CallbackInfoReturnable<InteractionResult> cir) {
+        ItemStack mainHandStack = mc.player.getMainHandItem();
+        if (mainHandStack.is(Items.END_CRYSTAL)) {
             if (isLookingAt(Blocks.OBSIDIAN, generalLookPos().getBlockPos())
                     || isLookingAt(Blocks.BEDROCK, generalLookPos().getBlockPos())) {
-                HitResult hitResult = mc.crosshairTarget;
+                HitResult hitResult = mc.hitResult;
                 if (hitResult instanceof BlockHitResult) {
                     BlockHitResult hit = (BlockHitResult)hitResult;
                     BlockPos block = hit.getBlockPos();
                     if (canPlaceCrystalServer(block))
-                        context.getStack().decrement(-1);
+                        context.getItemInHand().shrink(-1);
                 }
             }
         }
@@ -57,38 +57,38 @@ public class EndCrystalItemMixin {
 
 
     private BlockState getBlockState(BlockPos pos) {
-        return mc.world.getBlockState(pos);
+        return mc.level.getBlockState(pos);
     }
     private boolean isLookingAt(Block block, BlockPos pos) {
         return getBlockState(pos).getBlock() == block;
     }
     private BlockHitResult generalLookPos() {
-        Vec3d camPos = mc.player.getEyePos();
-        Vec3d clientLookVec = lookVec();
-        return mc.world.raycast(new RaycastContext(camPos, camPos.add(clientLookVec.multiply(4.5)), RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, mc.player));
+        Vec3 camPos = mc.player.getEyePosition();
+        Vec3 clientLookVec = lookVec();
+        return mc.level.clip(new ClipContext(camPos, camPos.add(clientLookVec.scale(4.5)), ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, mc.player));
 
     }
-    private Vec3d lookVec() {
+    private Vec3 lookVec() {
         float f = (float) Math.PI / 180;
         float pi = (float) Math.PI;
-        float f1 = MathHelper.cos(-mc.player.getYaw() * f - pi);
-        float f2 = MathHelper.sin(-mc.player.getYaw() * f - pi);
-        float f3 = -MathHelper.cos(-mc.player.getPitch() * f);
-        float f4 = MathHelper.sin(-mc.player.getPitch() * f);
-        return new Vec3d(f2 * f3, f4, f1 * f3).normalize();
+        float f1 = Mth.cos(-mc.player.getYRot() * f - pi);
+        float f2 = Mth.sin(-mc.player.getYRot() * f - pi);
+        float f3 = -Mth.cos(-mc.player.getXRot() * f);
+        float f4 = Mth.sin(-mc.player.getXRot() * f);
+        return new Vec3(f2 * f3, f4, f1 * f3).normalize();
     }
 
     private boolean canPlaceCrystalServer(BlockPos block) {
-        BlockState blockState = mc.world.getBlockState(block);
-        if (!blockState.isOf(Blocks.OBSIDIAN) && !blockState.isOf(Blocks.BEDROCK))
+        BlockState blockState = mc.level.getBlockState(block);
+        if (!blockState.is(Blocks.OBSIDIAN) && !blockState.is(Blocks.BEDROCK))
             return false;
-        BlockPos blockPos2 = block.up();
-        if (!mc.world.isAir(blockPos2))
+        BlockPos blockPos2 = block.above();
+        if (!mc.level.isEmptyBlock(blockPos2))
             return false;
         double d = blockPos2.getX();
         double e = blockPos2.getY();
         double f = blockPos2.getZ();
-        List<Entity> list = mc.world.getOtherEntities((Entity)null, new Box(d, e, f, d + 1.0D, e + 2.0D, f + 1.0D));
+        List<Entity> list = mc.level.getEntities(null, new AABB(d, e, f, d + 1.0D, e + 2.0D, f + 1.0D));
         return list.isEmpty();
     }
 }
